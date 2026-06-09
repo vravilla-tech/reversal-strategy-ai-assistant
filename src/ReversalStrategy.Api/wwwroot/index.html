@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reversal Strategy AI Assistant</title>
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --text: #e6edf3; --muted: #8b949e; --green: #3fb950;
+      --red: #f85149; --yellow: #d29922; --blue: #58a6ff; --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+    header span { color: var(--muted); font-size: 0.85rem; }
+    .badge { background: #1f3a5f; color: var(--blue); border: 1px solid #1f6feb; border-radius: 12px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; }
+
+    main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+    .controls { display: flex; gap: 1rem; margin-bottom: 2rem; align-items: center; flex-wrap: wrap; }
+    input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.9rem; width: 180px; }
+    input:focus { outline: none; border-color: var(--blue); }
+    button { background: var(--blue); color: #0d1117; border: none; padding: 0.6rem 1.4rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: opacity .2s; }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-scan { background: var(--purple); }
+
+    .status { color: var(--muted); font-size: 0.85rem; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.25rem; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; transition: border-color .2s; }
+    .card:hover { border-color: var(--blue); }
+    .card.signal-buy  { border-left: 4px solid var(--green); }
+    .card.signal-sell { border-left: 4px solid var(--red); }
+    .card.signal-none { border-left: 4px solid var(--border); }
+
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .symbol { font-size: 1.1rem; font-weight: 700; letter-spacing: .5px; }
+    .signal-badge { padding: 3px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .signal-badge.buy  { background: #1a3d2a; color: var(--green); border: 1px solid var(--green); }
+    .signal-badge.sell { background: #3d1a1a; color: var(--red);   border: 1px solid var(--red); }
+    .signal-badge.none { background: #1a1a2e; color: var(--muted); border: 1px solid var(--border); }
+
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+    .metric { background: #0d1117; border-radius: 8px; padding: 0.5rem 0.75rem; }
+    .metric-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+    .metric-value { font-size: 0.95rem; font-weight: 600; }
+    .metric-value.oversold  { color: var(--green); }
+    .metric-value.overbought { color: var(--red); }
+    .metric-value.neutral   { color: var(--text); }
+
+    .rules { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .rule { font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+    .rule.pass { background: #1a3d2a; color: var(--green); }
+    .rule.fail { background: #2d1a1a; color: var(--muted); }
+
+    .narrative { background: #0d1117; border-left: 3px solid var(--purple); border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; font-size: 0.83rem; line-height: 1.6; color: #c9d1d9; }
+    .narrative-label { font-size: 0.7rem; color: var(--purple); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 0.4rem; font-weight: 600; }
+
+    .loader { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); font-size: 0.9rem; }
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty { text-align: center; color: var(--muted); padding: 4rem; }
+    .empty h2 { margin-bottom: 0.5rem; color: var(--text); }
+
+    .timestamp { color: var(--muted); font-size: 0.75rem; margin-top: 0.75rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📈 Reversal Strategy AI Assistant</h1>
+    <span class="badge">Claude AI Powered</span>
+    <span>RSI · Pivot Points · Weekly S/R</span>
+  </header>
+
+  <main>
+    <div class="controls">
+      <input id="symbolInput" type="text" placeholder="e.g. EUR/USD" value="EUR/USD" />
+      <button id="btnSingle" onclick="scanSingle()">Analyse Pair</button>
+      <button id="btnScan" class="btn-scan" onclick="scanAll()">Scan All Pairs</button>
+      <span id="statusMsg" class="status"></span>
+    </div>
+
+    <div id="loader" class="loader" style="display:none">
+      <div class="spinner"></div>
+      <span id="loaderText">Analysing...</span>
+    </div>
+
+    <div id="grid" class="grid"></div>
+
+    <div id="empty" class="empty" style="display:none">
+      <h2>No signals yet</h2>
+      <p>Enter an FX pair or click "Scan All Pairs" to begin.</p>
+    </div>
+  </main>
+
+  <script>
+    const API = '';   // Same origin — API serves this static file
+
+    function setLoading(on, msg = 'Analysing...') {
+      document.getElementById('loader').style.display = on ? 'flex' : 'none';
+      document.getElementById('loaderText').textContent = msg;
+      document.getElementById('btnSingle').disabled = on;
+      document.getElementById('btnScan').disabled = on;
+    }
+
+    function setStatus(msg) {
+      document.getElementById('statusMsg').textContent = msg;
+    }
+
+    async function scanSingle() {
+      const sym = document.getElementById('symbolInput').value.trim();
+      if (!sym) return;
+      setLoading(true, `Fetching ${sym}...`);
+      setStatus('');
+      try {
+        const res = await fetch(`${API}/api/signals/${encodeURIComponent(sym.replace('/', '-'))}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'API error');
+        renderCards([data]);
+        setStatus(`Last updated: ${new Date().toLocaleTimeString()}`);
+      } catch (e) {
+        setStatus(`Error: ${e.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function scanAll() {
+      setLoading(true, 'Scanning all FX pairs... this may take ~30s');
+      setStatus('');
+      try {
+        const res = await fetch(`${API}/api/signals/scan`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'API error');
+        renderCards(data);
+        setStatus(`Scanned ${data.length} pairs · Last updated: ${new Date().toLocaleTimeString()}`);
+      } catch (e) {
+        setStatus(`Error: ${e.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function renderCards(signals) {
+      const grid = document.getElementById('grid');
+      const empty = document.getElementById('empty');
+      grid.innerHTML = '';
+
+      if (!signals.length) { empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+
+      signals.forEach(s => {
+        const dir = s.signal.toLowerCase();
+        const rsiClass = s.rsi <= 30 ? 'oversold' : s.rsi >= 70 ? 'overbought' : 'neutral';
+
+        grid.innerHTML += `
+          <div class="card signal-${dir}">
+            <div class="card-header">
+              <span class="symbol">${s.symbol}</span>
+              <span class="signal-badge ${dir}">${s.signal}</span>
+            </div>
+
+            <div class="metrics">
+              <div class="metric">
+                <div class="metric-label">Price (Close)</div>
+                <div class="metric-value">${s.currentPrice.toFixed(5)}</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">RSI (14)</div>
+                <div class="metric-value ${rsiClass}">${s.rsi}</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Daily Pivot</div>
+                <div class="metric-value">${s.dailyPivots.pivot.toFixed(5)}</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Touched Level</div>
+                <div class="metric-value">${s.touchedLevelLabel !== 'None' ? s.touchedLevelLabel + ' @ ' + s.touchedWeeklyLevel?.toFixed(5) : '—'}</div>
+              </div>
+            </div>
+
+            <div class="rules">
+              <span class="rule ${s.rsiConditionMet ? 'pass' : 'fail'}">
+                ${s.rsiConditionMet ? '✓' : '✗'} RSI Condition
+              </span>
+              <span class="rule ${s.pivotAlignmentMet ? 'pass' : 'fail'}">
+                ${s.pivotAlignmentMet ? '✓' : '✗'} Pivot Alignment
+              </span>
+              <span class="rule ${s.weeklySrTouchedIntrabar ? 'pass' : 'fail'}">
+                ${s.weeklySrTouchedIntrabar ? '✓' : '✗'} Weekly S/R Touch
+              </span>
+            </div>
+
+            <div class="narrative">
+              <div class="narrative-label">🤖 Claude AI Analysis</div>
+              ${s.claudeNarrative ?? 'No narrative available.'}
+            </div>
+
+            <div class="timestamp">Evaluated: ${new Date(s.evaluatedAt).toLocaleDateString('en-GB', { weekday:'short', year:'numeric', month:'short', day:'numeric' })}</div>
+          </div>`;
+      });
+    }
+  </script>
+</body>
+</html>

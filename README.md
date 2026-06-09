@@ -8,15 +8,15 @@ An FX trading signal application that detects **SHORT reversal setups** using a 
 
 ## 🧠 Strategy Logic
 
-The app evaluates a **4-step SHORT Reversal Strategy** on FX pairs using daily and weekly candles:
+The app evaluates **both LONG and SHORT reversal setups** simultaneously for every FX pair, using the same 4-step rule chain applied in opposite directions:
 
-| Step | Timeframe | Rule | Detail |
-|------|-----------|------|--------|
-| **1** | Daily | **RSI(14) breaks above 70** | RSI was below 70, now crosses above — overbought breakout signal |
-| **2** | Daily | **Price reaches pivot resistance + bearish rejection** | Candle wick touches R1/R2/R3 intrabar, closes below it — shooting-star/bearish rejection |
-| **3** | Weekly | **Resistance tested 2+ times in last 3–5 weeks** | Switch to weekly candles — confirms the level is a known, tested resistance |
-| **4** | Daily | **Latest completed daily candle is bearish** | Close < open on the last finished daily candle — confirms downward pressure |
-| ✅ | — | **Signal: SHORT** | All 4 rules met at daily close |
+| Step | Timeframe | SHORT Rule ▼ | LONG Rule ▲ |
+|------|-----------|-------------|------------|
+| **1** | Daily | RSI(14) **crosses above 70** (overbought) | RSI(14) **crosses below 30** (oversold) |
+| **2** | Daily | Candle wicks into **R1/R2/R3**, closes below (bearish rejection) | Candle wicks into **S1/S2/S3**, closes above (bullish bounce) |
+| **3** | Weekly | That **resistance** tested ≥ 2× in last 5 weeks | That **support** tested ≥ 2× in last 5 weeks |
+| **4** | Daily | Last completed daily candle is **bearish** (close < open) | Last completed daily candle is **bullish** (close > open) |
+| ✅ | — | **Signal: SHORT ▼** | **Signal: LONG ▲** |
 
 Claude then receives all computed indicator data and writes a **plain-English analyst commentary** — walking through each rule and explaining the setup like a trading analyst.
 
@@ -32,14 +32,19 @@ reversal-strategy-ai-assistant/
 │       │   └── SignalsController.cs             # GET /api/signals/{pair}  &  /api/signals/scan
 │       ├── Services/
 │       │   ├── MarketDataService.cs             # Fetches OHLC candles from Twelve Data API
-│       │   ├── IndicatorEngine.cs               # RSI (Wilder), pivot points, bearish-rejection checks, weekly test count
-│       │   ├── ReversalStrategyEngine.cs        # Applies 4-step rule chain, returns SignalResult
-│       │   └── ClaudeExplainerService.cs        # Structured prompt → Claude → analyst narrative
+│       │   ├── IndicatorEngine.cs               # RSI (Wilder), pivots, rejection/bounce checks, weekly test counter
+│       │   ├── ReversalStrategyEngine.cs        # 4-step rule chain for both LONG and SHORT directions
+│       │   └── ClaudeExplainerService.cs        # Structured prompt → Claude → analyst narrative (adapts per direction)
 │       ├── Models/
 │       │   ├── Candle.cs                        # OHLCV record
 │       │   ├── PivotLevels.cs                   # P, R1-R3, S1-S3
-│       │   └── SignalResult.cs                  # Full evaluation result (all rule flags + narrative)
-│       └── wwwroot/index.html                   # Dark-theme SPA dashboard
+│       │   └── SignalResult.cs                  # Unified result for both directions (all rule flags + narrative)
+│       └── wwwroot/index.html                   # Dark-theme SPA with LONG/SHORT tab switching
+├── tests/
+│   └── ReversalStrategy.Tests/                  # xUnit test project
+│       ├── Helpers/CandleBuilder.cs             # Fluent test-candle builder
+│       ├── IndicatorEngineTests.cs              # RSI, pivots, wick ratios, rule checks
+│       └── ReversalStrategyEngineTests.cs       # Full 4-rule chain for both directions
 └── ReversalStrategy.sln
 ```
 
@@ -100,7 +105,8 @@ dotnet run
 - **Structured prompting** — Claude receives a precisely templated data payload per rule, not free text, ensuring grounded and consistent responses
 - **LLM as explainability layer** — the deterministic strategy engine decides the signal; Claude's role is interpretation and narration only
 - **Sequential rule evaluation** — each rule gates the next, avoiding unnecessary computation and API calls
-- **Cost-aware Claude usage** — Claude is only called when at least Rule 1 (RSI breakout) is satisfied
+- **Cost-aware Claude usage** — Claude is only called when at least Rule 1 (RSI breakout) is satisfied; otherwise a lightweight message is returned
+- **Bi-directional strategy** — the same 4-step rule chain is applied independently for both LONG and SHORT on every scan, with direction-aware prompts to Claude
 - **Clean separation of concerns** — strategy logic is fully testable in isolation without any LLM dependency
 
 ---
@@ -114,6 +120,7 @@ dotnet run
 | Market Data | Twelve Data REST API (daily + weekly OHLC) |
 | Indicators | RSI (Wilder's smoothing), Floor Pivot Points |
 | Frontend | Vanilla HTML/CSS/JS — no build step, dark theme |
+| Testing | xUnit + FluentAssertions (21 unit tests) |
 | Language | C# 12 / .NET 8 |
 
 ---

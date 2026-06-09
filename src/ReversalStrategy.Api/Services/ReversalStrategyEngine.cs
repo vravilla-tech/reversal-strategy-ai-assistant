@@ -3,24 +3,47 @@ using ReversalStrategy.Api.Models;
 namespace ReversalStrategy.Api.Services;
 
 /// <summary>
-/// Evaluates the SHORT Reversal Strategy in 4 sequential steps (all on daily candles unless noted):
+/// Evaluates both LONG and SHORT reversal setups using the same 4-step rule chain.
 ///
+/// SHORT setup (sell signal):
 ///   Rule 1 — RSI(14) daily crosses above 70 (overbought breakout)
-///   Rule 2 — Price touches a daily pivot resistance (R1/R2/R3) intrabar and closes below it
-///             with a bearish candle (rejection/shooting-star pattern)
-///   Rule 3 — Switch to WEEKLY candles: the same resistance level has been tested
-///             at least 2 times within the last 3–5 weeks
-///   Rule 4 — Switch back to DAILY: the last completed daily candle is bearish (close < open)
+///   Rule 2 — Daily candle wicks into R1/R2/R3 and closes below it (bearish rejection)
+///   Rule 3 — Weekly: that resistance tested >= 2 times in last 3–5 weeks
+///   Rule 4 — Latest completed daily candle is bearish (close < open)
+///   => Signal: SHORT ▼
 ///
-///   => All 4 rules met  →  Signal: SHORT
+/// LONG setup (buy signal):
+///   Rule 1 — RSI(14) daily crosses below 30 (oversold breakout)
+///   Rule 2 — Daily candle wicks into S1/S2/S3 and closes above it (bullish bounce)
+///   Rule 3 — Weekly: that support tested >= 2 times in last 3–5 weeks
+///   Rule 4 — Latest completed daily candle is bullish (close > open)
+///   => Signal: LONG ▲
 /// </summary>
 public class ReversalStrategyEngine(IndicatorEngine indicators, ILogger<ReversalStrategyEngine> logger)
 {
     private const int MinWeeklyTests = 2;
     private const int WeeklyLookback = 5;
 
+    /// <summary>
+    /// Evaluates both directions and returns whichever signal fires.
+    /// If both fire simultaneously (rare), SHORT takes precedence.
+    /// </summary>
+    public async Task<(SignalResult Short, SignalResult Long)> EvaluateBothAsync(
+        string symbol,
+        List<Candle> dailyCandles,
+        List<Candle> weeklyCandles)
+    {
+        var shortResult = await EvaluateAsync(symbol, SignalDirection.Short, dailyCandles, weeklyCandles);
+        var longResult  = await EvaluateAsync(symbol, SignalDirection.Long,  dailyCandles, weeklyCandles);
+        return (shortResult, longResult);
+    }
+
+    /// <summary>
+    /// Evaluates one direction (Long or Short) and returns a <see cref="SignalResult"/>.
+    /// </summary>
     public Task<SignalResult> EvaluateAsync(
         string symbol,
+        SignalDirection direction,
         List<Candle> dailyCandles,
         List<Candle> weeklyCandles)
     {
@@ -29,83 +52,74 @@ public class ReversalStrategyEngine(IndicatorEngine indicators, ILogger<Reversal
         if (weeklyCandles.Count < WeeklyLookback + 1)
             throw new ArgumentException($"Need at least {WeeklyLookback + 1} weekly candles for {symbol}.");
 
-        var latestDaily = dailyCandles[^1];   // last completed daily candle
-        var prevDaily   = dailyCandles[^2];   // the one before — used for daily pivot calculation
+        var latestDaily = dailyCandles[^1];
+        var prevDaily   = dailyCandles[^2];
 
-        // ── Compute daily pivots from the previous completed daily candle ──────────
         var dailyPivots  = indicators.ComputePivots(prevDaily);
+        var weeklyPivots = indicators.ComputePivots(weeklyCandles[^2]);  // last completed week
 
-        // ── Compute weekly pivots from the last completed weekly candle ───────────
-        // weeklyCandles[^1] may be the current (still open) week — use [^2] for completed
-        var prevWeekly   = weeklyCandles[^2];
-        var weeklyPivots = indicators.ComputePivots(prevWeekly);
+        var (currRsi, prevRsi) = indicators.ComputeRsi(dailyCandles);
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // RULE 1 — RSI(14) breaks above 70 on daily
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        var (currentRsi, previousRsi) = indicators.ComputeRsi(dailyCandles);
-        bool rule1 = indicators.IsRsiBreakingUpperLimit(currentRsi, previousRsi);
+        bool isShort = direction == SignalDirection.Short;
 
-        logger.LogInformation("{Symbol} | Rule1 RSI Break: {Rule1} (prev={Prev} curr={Curr})",
-            symbol, rule1, previousRsi, currentRsi);
+        // ── Rule 1 ──────────────────────────────────────────────────────
+        bool rule1 = isShort
+            ? indicators.IsRsiBreakingUpperLimit(currRsi, prevRsi)
+            : indicators.IsRsiBreakingLowerLimit(currRsi, prevRsi);
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // RULE 2 — Price touches daily pivot resistance + bearish rejection
-        // Only evaluate if Rule 1 is met (save computation on non-candidates)
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        logger.LogInformation("{Symbol} {Dir} | Rule1 RSI: {R1} (prev={P} curr={C})",
+            symbol, direction, rule1, prevRsi, currRsi);
+
+        // ── Rule 2 ──────────────────────────────────────────────────────
         (decimal Level, string Label)? pivotTouch = null;
         bool rule2 = false;
 
         if (rule1)
         {
-            pivotTouch = indicators.CheckPivotResistanceRejection(latestDaily, dailyPivots);
+            pivotTouch = isShort
+                ? indicators.CheckResistanceRejection(latestDaily, dailyPivots)
+                : indicators.CheckSupportBounce(latestDaily, dailyPivots);
             rule2 = pivotTouch.HasValue;
 
-            logger.LogInformation("{Symbol} | Rule2 Pivot Rejection: {Rule2} ({Label} @ {Level})",
-                symbol, rule2, pivotTouch?.Label ?? "—", pivotTouch?.Level.ToString() ?? "—");
+            logger.LogInformation("{Symbol} {Dir} | Rule2 Pivot: {R2} ({Label})",
+                symbol, direction, rule2, pivotTouch?.Label ?? "—");
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // RULE 3 — Weekly candles: resistance tested 2+ times in 3–5 weeks
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // ── Rule 3 ──────────────────────────────────────────────────────
         int  weeklyTestCount = 0;
         bool rule3           = false;
 
         if (rule2 && pivotTouch.HasValue)
         {
-            weeklyTestCount = indicators.CountWeeklyLevelTests(
-                weeklyCandles, pivotTouch.Value.Level, WeeklyLookback);
+            weeklyTestCount = isShort
+                ? indicators.CountWeeklyResistanceTests(weeklyCandles, pivotTouch.Value.Level, WeeklyLookback)
+                : indicators.CountWeeklySupportTests   (weeklyCandles, pivotTouch.Value.Level, WeeklyLookback);
             rule3 = weeklyTestCount >= MinWeeklyTests;
 
-            logger.LogInformation("{Symbol} | Rule3 Weekly Tests: {Count} (need {Min}) → {Rule3}",
-                symbol, weeklyTestCount, MinWeeklyTests, rule3);
+            logger.LogInformation("{Symbol} {Dir} | Rule3 Weekly Tests: {Count} → {R3}",
+                symbol, direction, weeklyTestCount, rule3);
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // RULE 4 — Latest completed daily candle is bearish
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        bool rule4 = rule3 && indicators.IsBearishCandle(latestDaily);
+        // ── Rule 4 ──────────────────────────────────────────────────────
+        bool rule4 = rule3 && (isShort
+            ? indicators.IsBearishCandle(latestDaily)
+            : indicators.IsBullishCandle(latestDaily));
 
-        logger.LogInformation("{Symbol} | Rule4 Bearish Daily: {Rule4} (O={O} C={C})",
-            symbol, rule4, latestDaily.Open, latestDaily.Close);
+        logger.LogInformation("{Symbol} {Dir} | Rule4 Candle: {R4} (O={O} C={C})",
+            symbol, direction, rule4, latestDaily.Open, latestDaily.Close);
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // SIGNAL
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        var signal = (rule1 && rule2 && rule3 && rule4)
-            ? SignalDirection.Short
-            : SignalDirection.None;
-
-        logger.LogInformation("{Symbol} | *** SIGNAL: {Signal} ***", symbol, signal);
+        // ── Signal ──────────────────────────────────────────────────────
+        var signal = (rule1 && rule2 && rule3 && rule4) ? direction : SignalDirection.None;
+        logger.LogInformation("{Symbol} {Dir} | *** SIGNAL: {Signal} ***", symbol, direction, signal);
 
         return Task.FromResult(new SignalResult(
             Symbol:                    symbol,
             EvaluatedAt:               latestDaily.Timestamp,
+            Direction:                 direction,
             CurrentPrice:              latestDaily.Close,
-            DailyCandleBearish:        rule4,
-            Rsi:                       currentRsi,
-            PreviousRsi:               previousRsi,
-            RsiBreakingUpperLimit:     rule1,
+            Rsi:                       currRsi,
+            PreviousRsi:               prevRsi,
+            RsiBreakingLimit:          rule1,
             DailyPivots:               dailyPivots,
             TouchedPivotLevel:         pivotTouch?.Level,
             TouchedPivotLabel:         pivotTouch?.Label ?? "None",
@@ -113,8 +127,9 @@ public class ReversalStrategyEngine(IndicatorEngine indicators, ILogger<Reversal
             WeeklyPivots:              weeklyPivots,
             WeeklyTestCount:           weeklyTestCount,
             WeeklyTestedMultipleTimes: rule3,
+            ConfirmationCandleMet:     rule4,
             Signal:                    signal,
-            ClaudeNarrative:           null   // filled by ClaudeExplainerService
+            ClaudeNarrative:           null
         ));
     }
 }

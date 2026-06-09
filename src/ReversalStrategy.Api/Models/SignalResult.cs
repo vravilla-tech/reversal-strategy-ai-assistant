@@ -1,32 +1,39 @@
 namespace ReversalStrategy.Api.Models;
 
-public enum SignalDirection { None, Short }
+public enum SignalDirection { None, Long, Short }
 
+/// <summary>
+/// Unified result for both LONG and SHORT reversal evaluations.
+/// All 4 rule flags are direction-agnostic; the Signal field indicates which fired.
+/// </summary>
 public record SignalResult(
     string Symbol,
     DateTime EvaluatedAt,
+    SignalDirection Direction,   // which direction was evaluated (Long or Short)
 
-    // Price
+    // ── Price ──────────────────────────────────
     decimal CurrentPrice,
-    bool    DailyCandleBearish,      // Rule 4: latest daily candle close < open
 
-    // Rule 1 — RSI
+    // ── Rule 1 — RSI ───────────────────────────
     decimal Rsi,
     decimal PreviousRsi,
-    bool    RsiBreakingUpperLimit,   // RSI crossed above 70 on daily
+    bool    RsiBreakingLimit,       // SHORT: crosses above 70 | LONG: crosses below 30
 
-    // Rule 2 — Pivot resistance touch + bearish rejection
+    // ── Rule 2 — Pivot touch + rejection ───────
     PivotLevels DailyPivots,
     decimal?    TouchedPivotLevel,
     string      TouchedPivotLabel,
-    bool        PivotTouchWithRejection,  // touched R-level intrabar AND closed below it (bearish)
+    bool        PivotTouchWithRejection,  // SHORT: bearish rejection at R-level | LONG: bullish bounce at S-level
 
-    // Rule 3 — Weekly level tests
+    // ── Rule 3 — Weekly level tests ────────────
     PivotLevels WeeklyPivots,
-    int         WeeklyTestCount,          // how many of last 3-5 weekly candles tested the level
-    bool        WeeklyTestedMultipleTimes, // >= 2 tests
+    int         WeeklyTestCount,
+    bool        WeeklyTestedMultipleTimes,  // >= 2 tests in 3–5 weeks
 
-    // Final
+    // ── Rule 4 — Confirmation candle ───────────
+    bool ConfirmationCandleMet,   // SHORT: bearish close | LONG: bullish close
+
+    // ── Final ──────────────────────────────────
     SignalDirection Signal,
     string?         ClaudeNarrative
 );

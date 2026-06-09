@@ -2,252 +2,256 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reversal Strategy AI — SHORT Signals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FX Reversal Strategy AI</title>
   <style>
     :root {
-      --bg: #0d1117; --surface: #161b22; --border: #30363d;
-      --text: #e6edf3; --muted: #8b949e;
-      --green: #3fb950; --red: #f85149; --orange: #e3b341;
-      --blue: #58a6ff; --purple: #bc8cff;
+      --bg:#0d1117; --surface:#161b22; --border:#30363d;
+      --text:#e6edf3; --muted:#8b949e;
+      --green:#3fb950; --red:#f85149; --orange:#e3b341;
+      --blue:#58a6ff; --purple:#bc8cff;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
 
-    header {
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-    }
-    header h1 { font-size: 1.2rem; font-weight: 700; }
-    .badge { background: #3d1a1a; color: var(--red); border: 1px solid var(--red); border-radius: 12px; padding: 2px 10px; font-size: 0.75rem; font-weight: 700; }
-    .tag   { background: #1f2d3d; color: var(--blue); border-radius: 8px; padding: 2px 9px; font-size: 0.75rem; }
+    header{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;}
+    header h1{font-size:1.2rem;font-weight:700;}
+    .tag{border-radius:8px;padding:2px 9px;font-size:.73rem;font-weight:600;}
+    .tag-long {background:#1a3d2a;color:var(--green);border:1px solid var(--green);}
+    .tag-short{background:#3d1a1a;color:var(--red);  border:1px solid var(--red);}
+    .tag-blue {background:#1f2d3d;color:var(--blue); border:1px solid var(--blue);}
 
-    main { max-width: 1260px; margin: 0 auto; padding: 1.5rem 2rem; }
+    main{max-width:1300px;margin:0 auto;padding:1.5rem 2rem;}
 
-    /* Strategy legend */
-    .legend {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap;
-    }
-    .legend-step { display: flex; align-items: flex-start; gap: 0.5rem; }
-    .step-num { background: var(--red); color: #fff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
-    .step-text { font-size: 0.8rem; line-height: 1.4; }
-    .step-text strong { color: var(--text); display: block; }
-    .step-text span   { color: var(--muted); }
+    /* legend */
+    .legend{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;}
+    .legend-title{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.75rem;}
+    .legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem 2rem;}
+    .legend-step{display:flex;gap:.5rem;align-items:flex-start;}
+    .step-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;margin-top:1px;}
+    .step-num.long {background:var(--green);color:#0d1117;}
+    .step-num.short{background:var(--red);  color:#fff;}
+    .step-text strong{display:block;font-size:.82rem;}
+    .step-text span{font-size:.76rem;color:var(--muted);}
 
-    .controls { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap; }
-    input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.55rem 1rem; border-radius: 8px; font-size: 0.9rem; width: 170px; }
-    input:focus { outline: none; border-color: var(--blue); }
-    button { padding: 0.55rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.88rem; border: none; transition: opacity .2s; }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .btn-single { background: var(--blue);   color: #0d1117; }
-    .btn-scan   { background: var(--orange); color: #0d1117; }
-    .status { color: var(--muted); font-size: 0.82rem; }
+    .controls{display:flex;gap:.75rem;margin-bottom:1.5rem;align-items:center;flex-wrap:wrap;}
+    input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:.55rem 1rem;border-radius:8px;font-size:.9rem;width:170px;}
+    input:focus{outline:none;border-color:var(--blue);}
+    button{padding:.55rem 1.2rem;border-radius:8px;font-weight:600;cursor:pointer;font-size:.88rem;border:none;transition:opacity .2s;}
+    button:disabled{opacity:.45;cursor:not-allowed;}
+    .btn-single{background:var(--blue);color:#0d1117;}
+    .btn-scan  {background:var(--orange);color:#0d1117;}
+    .status{color:var(--muted);font-size:.82rem;}
 
-    .loader { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); font-size: 0.88rem; margin-bottom: 1rem; }
-    .spinner { width: 17px; height: 17px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.88rem;margin-bottom:1rem;}
+    .spinner{width:17px;height:17px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1.2rem; }
+    /* tab bar for LONG / SHORT */
+    .tabs{display:flex;gap:.5rem;margin-bottom:1.25rem;}
+    .tab{padding:.4rem 1.1rem;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .2s;}
+    .tab.active-long {background:#1a3d2a;color:var(--green);border-color:var(--green);}
+    .tab.active-short{background:#3d1a1a;color:var(--red);  border-color:var(--red);}
+    .tab:hover{color:var(--text);}
 
-    .card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 1.25rem; transition: border-color .2s;
-    }
-    .card:hover { border-color: var(--blue); }
-    .card.short { border-left: 4px solid var(--red); }
-    .card.none  { border-left: 4px solid var(--border); }
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:1.2rem;}
 
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .symbol { font-size: 1.1rem; font-weight: 700; letter-spacing: .5px; }
-    .sig-badge { padding: 3px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-    .sig-badge.short { background: #3d1a1a; color: var(--red);   border: 1px solid var(--red); }
-    .sig-badge.none  { background: #1c1c2e; color: var(--muted); border: 1px solid var(--border); }
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;transition:border-color .2s;}
+    .card:hover{border-color:var(--blue);}
+    .card.long {border-left:4px solid var(--green);}
+    .card.short{border-left:4px solid var(--red);}
+    .card.none {border-left:4px solid var(--border);}
 
-    /* Rule checklist */
-    .rules { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
-    .rule-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
-    .rule-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; flex-shrink: 0; }
-    .rule-icon.pass { background: #1a3d2a; color: var(--green); border: 1px solid var(--green); }
-    .rule-icon.fail { background: #2d2d1a; color: var(--muted); border: 1px solid var(--border); }
-    .rule-label { color: var(--muted); }
-    .rule-value { color: var(--text); margin-left: auto; font-weight: 600; font-size: 0.78rem; }
+    .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
+    .symbol{font-size:1.1rem;font-weight:700;letter-spacing:.5px;}
+    .sig-badge{padding:3px 12px;border-radius:20px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+    .sig-badge.long {background:#1a3d2a;color:var(--green);border:1px solid var(--green);}
+    .sig-badge.short{background:#3d1a1a;color:var(--red);  border:1px solid var(--red);}
+    .sig-badge.none {background:#1c1c2e;color:var(--muted);border:1px solid var(--border);}
 
-    /* Metrics strip */
-    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
-    .metric { background: #0d1117; border-radius: 8px; padding: 0.45rem 0.7rem; }
-    .metric-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
-    .metric-value { font-size: 0.9rem; font-weight: 600; }
-    .overbought { color: var(--red); }
-    .neutral    { color: var(--text); }
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:1rem;}
+    .metric{background:#0d1117;border-radius:8px;padding:.45rem .7rem;}
+    .metric-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;}
+    .metric-value{font-size:.9rem;font-weight:600;}
+    .overbought{color:var(--red);}
+    .oversold  {color:var(--green);}
+    .neutral   {color:var(--text);}
 
-    /* Claude narrative */
-    .narrative { background: #0d1117; border-left: 3px solid var(--purple); border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; font-size: 0.82rem; line-height: 1.65; color: #c9d1d9; }
-    .narrative-label { font-size: 0.69rem; color: var(--purple); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 0.4rem; font-weight: 600; }
+    .rules{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem;}
+    .rule-row{display:flex;align-items:center;gap:.5rem;font-size:.8rem;}
+    .rule-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0;}
+    .rule-icon.pass{background:#1a3d2a;color:var(--green);border:1px solid var(--green);}
+    .rule-icon.fail{background:#2d2d1a;color:var(--muted);border:1px solid var(--border);}
+    .rule-label{color:var(--muted);}
+    .rule-value{color:var(--text);margin-left:auto;font-weight:600;font-size:.78rem;}
 
-    .timestamp { color: var(--muted); font-size: 0.73rem; margin-top: 0.75rem; }
-    .empty { text-align: center; color: var(--muted); padding: 4rem; }
-    .empty h2 { color: var(--text); margin-bottom: 0.4rem; }
+    .narrative{background:#0d1117;border-left:3px solid var(--purple);border-radius:0 8px 8px 0;padding:.75rem 1rem;font-size:.82rem;line-height:1.65;color:#c9d1d9;}
+    .narrative-label{font-size:.69rem;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;font-weight:600;}
+
+    .timestamp{color:var(--muted);font-size:.73rem;margin-top:.75rem;}
+    .empty{text-align:center;color:var(--muted);padding:4rem;}
+    .empty h2{color:var(--text);margin-bottom:.4rem;}
   </style>
 </head>
 <body>
 
 <header>
-  <h1>📉 FX SHORT Reversal Strategy</h1>
-  <span class="badge">SHORT Only</span>
-  <span class="tag">RSI Breakout</span>
-  <span class="tag">Pivot Rejection</span>
-  <span class="tag">Weekly S/R Test</span>
-  <span class="tag">Claude AI</span>
+  <h1>📊 FX Reversal Strategy AI</h1>
+  <span class="tag tag-long">▲ LONG</span>
+  <span class="tag tag-short">▼ SHORT</span>
+  <span class="tag tag-blue">RSI · Pivots · Weekly S/R · Claude AI</span>
 </header>
 
 <main>
 
-  <!-- Strategy legend -->
   <div class="legend">
-    <div class="legend-step">
-      <div class="step-num">1</div>
-      <div class="step-text">
-        <strong>RSI Breaks Above 70</strong>
-        <span>Daily RSI(14) crosses from below to above 70</span>
+    <div class="legend-title">4-Step Rule Chain — evaluated for both directions on every pair</div>
+    <div class="legend-grid">
+      <div>
+        <strong style="font-size:.8rem;color:var(--green);margin-bottom:.5rem;display:block">▲ LONG Setup</strong>
+        <div class="legend-step"><div class="step-num long">1</div><div class="step-text"><strong>RSI crosses below 30</strong><span>Daily RSI(14) oversold breakout</span></div></div>
+        <div class="legend-step" style="margin-top:.5rem"><div class="step-num long">2</div><div class="step-text"><strong>Bounce at S1/S2/S3</strong><span>Candle wicks into support, closes above it (bullish hammer)</span></div></div>
+        <div class="legend-step" style="margin-top:.5rem"><div class="step-num long">3</div><div class="step-text"><strong>Weekly support tested 2×</strong><span>That support level tested ≥2 times in last 5 weeks</span></div></div>
+        <div class="legend-step" style="margin-top:.5rem"><div class="step-num long">4</div><div class="step-text"><strong>Daily candle closes bullish</strong><span>Close &gt; open on completed daily candle</span></div></div>
       </div>
-    </div>
-    <div class="legend-step">
-      <div class="step-num">2</div>
-      <div class="step-text">
-        <strong>Pivot Resistance Rejection</strong>
-        <span>Daily candle wicks into R1/R2/R3 &amp; closes below — bearish rejection</span>
-      </div>
-    </div>
-    <div class="legend-step">
-      <div class="step-num">3</div>
-      <div class="step-text">
-        <strong>Weekly Level Tested 2× (3–5 wks)</strong>
-        <span>Weekly candles tested that resistance ≥ 2 times</span>
-      </div>
-    </div>
-    <div class="legend-step">
-      <div class="step-num">4</div>
-      <div class="step-text">
-        <strong>Bearish Daily Candle Close</strong>
-        <span>Last completed daily candle closes bearish (close &lt; open)</span>
+      <div>
+        <strong style="font-size:.8rem;color:var(--red);margin-bottom:.5rem;display:block">▼ SHORT Setup</strong>
+        <div class="legend-step"><div class="step-num short">1</div><div class="step-text"><strong>RSI crosses above 70</strong><span>Daily RSI(14) overbought breakout</span></div></div>
+        <div class="legend-step" style="margin-top:.5rem"><div class="step-num short">2</div><div class="step-text"><strong>Rejection at R1/R2/R3</strong><span>Candle wicks into resistance, closes below it (bearish rejection)</span></div></div>
+        <div class="legend-step" style="margin-top:.5rem"><div class="step-num short">3</div><div class="step-text"><strong>Weekly resistance tested 2×</strong><span>That resistance level tested ≥2 times in last 5 weeks</span></div></div>
+        <div class="legend-step" style="margin-top:.5rem"><div class="step-num short">4</div><div class="step-text"><strong>Daily candle closes bearish</strong><span>Close &lt; open on completed daily candle</span></div></div>
       </div>
     </div>
   </div>
 
   <div class="controls">
-    <input id="symInput" type="text" placeholder="e.g. EUR/USD" value="EUR/USD" />
+    <input id="symInput" type="text" placeholder="e.g. EUR/USD" value="EUR/USD"/>
     <button class="btn-single" id="btnSingle" onclick="analyseSingle()">Analyse Pair</button>
     <button class="btn-scan"   id="btnScan"   onclick="scanAll()">Scan All Pairs</button>
     <span id="statusMsg" class="status"></span>
   </div>
 
   <div id="loader" class="loader" style="display:none">
-    <div class="spinner"></div>
-    <span id="loaderText">Analysing...</span>
+    <div class="spinner"></div><span id="loaderText">Analysing...</span>
   </div>
 
-  <div id="grid" class="grid"></div>
+  <!-- direction tabs -->
+  <div id="tabBar" class="tabs" style="display:none">
+    <button class="tab active-long"  id="tabLong"  onclick="switchTab('long')">▲ LONG</button>
+    <button class="tab"              id="tabShort" onclick="switchTab('short')">▼ SHORT</button>
+  </div>
+
+  <div id="gridLong"  class="grid"></div>
+  <div id="gridShort" class="grid" style="display:none"></div>
   <div id="empty" class="empty" style="display:none">
-    <h2>No data yet</h2>
-    <p>Enter an FX pair above or click "Scan All Pairs".</p>
+    <h2>No data yet</h2><p>Enter a pair or click "Scan All Pairs".</p>
   </div>
-
 </main>
 
 <script>
-  function setLoading(on, msg = 'Analysing...') {
-    document.getElementById('loader').style.display = on ? 'flex' : 'none';
-    document.getElementById('loaderText').textContent = msg;
-    ['btnSingle','btnScan'].forEach(id => document.getElementById(id).disabled = on);
-  }
-  function setStatus(msg) { document.getElementById('statusMsg').textContent = msg; }
+  let currentTab = 'long';
+  let allSignals = [];
 
-  async function analyseSingle() {
+  function setLoading(on, msg='Analysing...'){
+    document.getElementById('loader').style.display = on?'flex':'none';
+    document.getElementById('loaderText').textContent = msg;
+    ['btnSingle','btnScan'].forEach(id=>document.getElementById(id).disabled=on);
+  }
+  function setStatus(msg){document.getElementById('statusMsg').textContent=msg;}
+
+  async function analyseSingle(){
     const sym = document.getElementById('symInput').value.trim();
-    if (!sym) return;
-    setLoading(true, `Fetching ${sym}…`);
-    try {
+    if(!sym) return;
+    setLoading(true,`Fetching ${sym}…`);
+    try{
       const res  = await fetch(`/api/signals/${encodeURIComponent(sym.replace('/','-'))}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'API error');
-      renderCards([data]);
+      if(!res.ok) throw new Error(data.error||'API error');
+      allSignals = Array.isArray(data) ? data : [data];
+      renderAll();
       setStatus(`Updated: ${new Date().toLocaleTimeString()}`);
-    } catch(e) { setStatus(`Error: ${e.message}`); }
-    finally { setLoading(false); }
+    }catch(e){setStatus(`Error: ${e.message}`);}
+    finally{setLoading(false);}
   }
 
-  async function scanAll() {
-    setLoading(true, 'Scanning 7 pairs — may take ~30s…');
-    try {
+  async function scanAll(){
+    setLoading(true,'Scanning all pairs — may take ~45s…');
+    try{
       const res  = await fetch('/api/signals/scan');
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'API error');
-      renderCards(data);
-      setStatus(`Scanned ${data.length} pairs · ${new Date().toLocaleTimeString()}`);
-    } catch(e) { setStatus(`Error: ${e.message}`); }
-    finally { setLoading(false); }
+      if(!res.ok) throw new Error(data.error||'API error');
+      allSignals = data;
+      renderAll();
+      const pairs = [...new Set(data.map(s=>s.symbol))].length;
+      setStatus(`Scanned ${pairs} pairs · ${new Date().toLocaleTimeString()}`);
+    }catch(e){setStatus(`Error: ${e.message}`);}
+    finally{setLoading(false);}
   }
 
-  function ruleRow(pass, label, value) {
-    return `
-      <div class="rule-row">
-        <div class="rule-icon ${pass ? 'pass' : 'fail'}">${pass ? '✓' : '✗'}</div>
-        <span class="rule-label">${label}</span>
-        <span class="rule-value">${value}</span>
-      </div>`;
+  function switchTab(tab){
+    currentTab = tab;
+    document.getElementById('tabLong') .className = 'tab' + (tab==='long'  ? ' active-long'  : '');
+    document.getElementById('tabShort').className = 'tab' + (tab==='short' ? ' active-short' : '');
+    document.getElementById('gridLong') .style.display = tab==='long'  ? 'grid' : 'none';
+    document.getElementById('gridShort').style.display = tab==='short' ? 'grid' : 'none';
   }
 
-  function renderCards(signals) {
-    const grid  = document.getElementById('grid');
-    const empty = document.getElementById('empty');
+  function renderAll(){
+    const longs  = allSignals.filter(s=>s.direction===1||s.direction==='Long');
+    const shorts = allSignals.filter(s=>s.direction===2||s.direction==='Short');
+    document.getElementById('empty').style.display = allSignals.length ? 'none' : 'block';
+    document.getElementById('tabBar').style.display = allSignals.length ? 'flex' : 'none';
+    renderCards('gridLong',  longs);
+    renderCards('gridShort', shorts);
+    switchTab(currentTab);
+  }
+
+  function ruleRow(pass, label, value){
+    return `<div class="rule-row">
+      <div class="rule-icon ${pass?'pass':'fail'}">${pass?'✓':'✗'}</div>
+      <span class="rule-label">${label}</span>
+      <span class="rule-value">${value}</span>
+    </div>`;
+  }
+
+  function renderCards(gridId, signals){
+    const grid = document.getElementById(gridId);
     grid.innerHTML = '';
-    if (!signals.length) { empty.style.display = 'block'; return; }
-    empty.style.display = 'none';
+    if(!signals.length){grid.innerHTML='<div style="color:var(--muted);font-size:.88rem">No candidates found.</div>';return;}
 
-    signals.forEach(s => {
-      const dir      = s.signal.toLowerCase();
-      const rsiClass = s.rsi >= 70 ? 'overbought' : 'neutral';
+    signals.forEach(s=>{
+      const isShort  = s.direction===2||s.direction==='Short';
+      const dirCls   = s.signal===0||s.signal==='None' ? 'none' : (isShort ? 'short' : 'long');
+      const sigLabel = s.signal===0||s.signal==='None' ? 'No Signal' : (isShort ? '▼ SHORT' : '▲ LONG');
+      const rsiClass = isShort ? (s.rsi>=70?'overbought':'neutral') : (s.rsi<=30?'oversold':'neutral');
+      const r1label  = isShort ? `R1: ${s.dailyPivots?.r1?.toFixed(5)??'—'}` : `S1: ${s.dailyPivots?.s1?.toFixed(5)??'—'}`;
+      const r2label  = isShort ? `R2: ${s.dailyPivots?.r2?.toFixed(5)??'—'}` : `S2: ${s.dailyPivots?.s2?.toFixed(5)??'—'}`;
 
       grid.innerHTML += `
-        <div class="card ${dir}">
+        <div class="card ${dirCls}">
           <div class="card-header">
             <span class="symbol">${s.symbol}</span>
-            <span class="sig-badge ${dir}">${s.signal === 'Short' ? '▼ SHORT' : 'No Signal'}</span>
+            <span class="sig-badge ${dirCls}">${sigLabel}</span>
           </div>
-
           <div class="metrics">
-            <div class="metric">
-              <div class="metric-label">Price (Close)</div>
-              <div class="metric-value">${s.currentPrice.toFixed(5)}</div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">RSI(14) Daily</div>
-              <div class="metric-value ${rsiClass}">${s.rsi} <small style="font-weight:400;color:var(--muted)">(prev ${s.previousRsi})</small></div>
-            </div>
-            <div class="metric">
-              <div class="metric-label">Weekly Tests</div>
-              <div class="metric-value">${s.weeklyTestCount} / 5 wks</div>
-            </div>
+            <div class="metric"><div class="metric-label">Price (Close)</div><div class="metric-value">${s.currentPrice.toFixed(5)}</div></div>
+            <div class="metric"><div class="metric-label">RSI(14) Daily</div><div class="metric-value ${rsiClass}">${s.rsi} <small style="font-weight:400;color:var(--muted)">(prev ${s.previousRsi})</small></div></div>
+            <div class="metric"><div class="metric-label">Weekly Tests</div><div class="metric-value">${s.weeklyTestCount}/5 wks</div></div>
           </div>
-
           <div class="rules">
-            ${ruleRow(s.rsiBreakingUpperLimit,     'Rule 1 — RSI breaks above 70 (daily)',       `${s.previousRsi} → ${s.rsi}`)}
-            ${ruleRow(s.pivotTouchWithRejection,   'Rule 2 — Pivot resistance rejection',         s.touchedPivotLabel !== 'None' ? `${s.touchedPivotLabel} @ ${s.touchedPivotLevel?.toFixed(5) ?? '—'}` : '—')}
-            ${ruleRow(s.weeklyTestedMultipleTimes, 'Rule 3 — Weekly level tested 2× (3–5 wks)',   `${s.weeklyTestCount} test(s)`)}
-            ${ruleRow(s.dailyCandleBearish,        'Rule 4 — Daily candle closes bearish',         s.dailyCandleBearish ? 'Bearish close ✓' : 'Not bearish')}
+            ${ruleRow(s.rsiBreakingLimit,          isShort?'Rule 1 — RSI breaks above 70':'Rule 1 — RSI breaks below 30', `${s.previousRsi} → ${s.rsi}`)}
+            ${ruleRow(s.pivotTouchWithRejection,   isShort?'Rule 2 — Resistance rejection (R1/R2/R3)':'Rule 2 — Support bounce (S1/S2/S3)', s.touchedPivotLabel!=='None'?`${s.touchedPivotLabel} @ ${s.touchedPivotLevel?.toFixed(5)??'—'}`:'—')}
+            ${ruleRow(s.weeklyTestedMultipleTimes, 'Rule 3 — Weekly level tested 2× (3–5 wks)', `${s.weeklyTestCount} test(s)`)}
+            ${ruleRow(s.confirmationCandleMet,     isShort?'Rule 4 — Daily candle closes bearish':'Rule 4 — Daily candle closes bullish', s.confirmationCandleMet?(isShort?'Bearish ✓':'Bullish ✓'):'Not confirmed')}
           </div>
-
           <div class="narrative">
             <div class="narrative-label">🤖 Claude AI — Analyst Commentary</div>
-            ${s.claudeNarrative ?? 'No narrative available.'}
+            ${s.claudeNarrative??'No narrative available.'}
           </div>
-
           <div class="timestamp">
-            Evaluated: ${new Date(s.evaluatedAt).toLocaleDateString('en-GB',{weekday:'short',year:'numeric',month:'short',day:'numeric'})}
-            &nbsp;·&nbsp; Daily Pivot: ${s.dailyPivots?.pivot?.toFixed(5) ?? '—'}
-            &nbsp;·&nbsp; R1: ${s.dailyPivots?.r1?.toFixed(5) ?? '—'}
-            &nbsp;·&nbsp; R2: ${s.dailyPivots?.r2?.toFixed(5) ?? '—'}
+            ${new Date(s.evaluatedAt).toLocaleDateString('en-GB',{weekday:'short',year:'numeric',month:'short',day:'numeric'})}
+            &nbsp;·&nbsp; Pivot: ${s.dailyPivots?.pivot?.toFixed(5)??'—'}
+            &nbsp;·&nbsp; ${r1label} &nbsp; ${r2label}
           </div>
         </div>`;
     });

@@ -3,209 +3,255 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reversal Strategy AI Assistant</title>
+  <title>Reversal Strategy AI — SHORT Signals</title>
   <style>
     :root {
       --bg: #0d1117; --surface: #161b22; --border: #30363d;
-      --text: #e6edf3; --muted: #8b949e; --green: #3fb950;
-      --red: #f85149; --yellow: #d29922; --blue: #58a6ff; --purple: #bc8cff;
+      --text: #e6edf3; --muted: #8b949e;
+      --green: #3fb950; --red: #f85149; --orange: #e3b341;
+      --blue: #58a6ff; --purple: #bc8cff;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
-    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
-    header h1 { font-size: 1.25rem; font-weight: 600; }
-    header span { color: var(--muted); font-size: 0.85rem; }
-    .badge { background: #1f3a5f; color: var(--blue); border: 1px solid #1f6feb; border-radius: 12px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; }
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; }
+    .badge { background: #3d1a1a; color: var(--red); border: 1px solid var(--red); border-radius: 12px; padding: 2px 10px; font-size: 0.75rem; font-weight: 700; }
+    .tag   { background: #1f2d3d; color: var(--blue); border-radius: 8px; padding: 2px 9px; font-size: 0.75rem; }
 
-    main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    main { max-width: 1260px; margin: 0 auto; padding: 1.5rem 2rem; }
 
-    .controls { display: flex; gap: 1rem; margin-bottom: 2rem; align-items: center; flex-wrap: wrap; }
-    input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.9rem; width: 180px; }
+    /* Strategy legend */
+    .legend {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap;
+    }
+    .legend-step { display: flex; align-items: flex-start; gap: 0.5rem; }
+    .step-num { background: var(--red); color: #fff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .step-text { font-size: 0.8rem; line-height: 1.4; }
+    .step-text strong { color: var(--text); display: block; }
+    .step-text span   { color: var(--muted); }
+
+    .controls { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap; }
+    input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.55rem 1rem; border-radius: 8px; font-size: 0.9rem; width: 170px; }
     input:focus { outline: none; border-color: var(--blue); }
-    button { background: var(--blue); color: #0d1117; border: none; padding: 0.6rem 1.4rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: opacity .2s; }
-    button:hover { opacity: 0.85; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-scan { background: var(--purple); }
+    button { padding: 0.55rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.88rem; border: none; transition: opacity .2s; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-single { background: var(--blue);   color: #0d1117; }
+    .btn-scan   { background: var(--orange); color: #0d1117; }
+    .status { color: var(--muted); font-size: 0.82rem; }
 
-    .status { color: var(--muted); font-size: 0.85rem; }
+    .loader { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); font-size: 0.88rem; margin-bottom: 1rem; }
+    .spinner { width: 17px; height: 17px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.25rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1.2rem; }
 
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; transition: border-color .2s; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem; transition: border-color .2s;
+    }
     .card:hover { border-color: var(--blue); }
-    .card.signal-buy  { border-left: 4px solid var(--green); }
-    .card.signal-sell { border-left: 4px solid var(--red); }
-    .card.signal-none { border-left: 4px solid var(--border); }
+    .card.short { border-left: 4px solid var(--red); }
+    .card.none  { border-left: 4px solid var(--border); }
 
     .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
     .symbol { font-size: 1.1rem; font-weight: 700; letter-spacing: .5px; }
-    .signal-badge { padding: 3px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-    .signal-badge.buy  { background: #1a3d2a; color: var(--green); border: 1px solid var(--green); }
-    .signal-badge.sell { background: #3d1a1a; color: var(--red);   border: 1px solid var(--red); }
-    .signal-badge.none { background: #1a1a2e; color: var(--muted); border: 1px solid var(--border); }
+    .sig-badge { padding: 3px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .sig-badge.short { background: #3d1a1a; color: var(--red);   border: 1px solid var(--red); }
+    .sig-badge.none  { background: #1c1c2e; color: var(--muted); border: 1px solid var(--border); }
 
-    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
-    .metric { background: #0d1117; border-radius: 8px; padding: 0.5rem 0.75rem; }
-    .metric-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
-    .metric-value { font-size: 0.95rem; font-weight: 600; }
-    .metric-value.oversold  { color: var(--green); }
-    .metric-value.overbought { color: var(--red); }
-    .metric-value.neutral   { color: var(--text); }
+    /* Rule checklist */
+    .rules { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+    .rule-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+    .rule-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; flex-shrink: 0; }
+    .rule-icon.pass { background: #1a3d2a; color: var(--green); border: 1px solid var(--green); }
+    .rule-icon.fail { background: #2d2d1a; color: var(--muted); border: 1px solid var(--border); }
+    .rule-label { color: var(--muted); }
+    .rule-value { color: var(--text); margin-left: auto; font-weight: 600; font-size: 0.78rem; }
 
-    .rules { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    .rule { font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
-    .rule.pass { background: #1a3d2a; color: var(--green); }
-    .rule.fail { background: #2d1a1a; color: var(--muted); }
+    /* Metrics strip */
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+    .metric { background: #0d1117; border-radius: 8px; padding: 0.45rem 0.7rem; }
+    .metric-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
+    .metric-value { font-size: 0.9rem; font-weight: 600; }
+    .overbought { color: var(--red); }
+    .neutral    { color: var(--text); }
 
-    .narrative { background: #0d1117; border-left: 3px solid var(--purple); border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; font-size: 0.83rem; line-height: 1.6; color: #c9d1d9; }
-    .narrative-label { font-size: 0.7rem; color: var(--purple); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 0.4rem; font-weight: 600; }
+    /* Claude narrative */
+    .narrative { background: #0d1117; border-left: 3px solid var(--purple); border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; font-size: 0.82rem; line-height: 1.65; color: #c9d1d9; }
+    .narrative-label { font-size: 0.69rem; color: var(--purple); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 0.4rem; font-weight: 600; }
 
-    .loader { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); font-size: 0.9rem; }
-    .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
+    .timestamp { color: var(--muted); font-size: 0.73rem; margin-top: 0.75rem; }
     .empty { text-align: center; color: var(--muted); padding: 4rem; }
-    .empty h2 { margin-bottom: 0.5rem; color: var(--text); }
-
-    .timestamp { color: var(--muted); font-size: 0.75rem; margin-top: 0.75rem; }
+    .empty h2 { color: var(--text); margin-bottom: 0.4rem; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>📈 Reversal Strategy AI Assistant</h1>
-    <span class="badge">Claude AI Powered</span>
-    <span>RSI · Pivot Points · Weekly S/R</span>
-  </header>
 
-  <main>
-    <div class="controls">
-      <input id="symbolInput" type="text" placeholder="e.g. EUR/USD" value="EUR/USD" />
-      <button id="btnSingle" onclick="scanSingle()">Analyse Pair</button>
-      <button id="btnScan" class="btn-scan" onclick="scanAll()">Scan All Pairs</button>
-      <span id="statusMsg" class="status"></span>
+<header>
+  <h1>📉 FX SHORT Reversal Strategy</h1>
+  <span class="badge">SHORT Only</span>
+  <span class="tag">RSI Breakout</span>
+  <span class="tag">Pivot Rejection</span>
+  <span class="tag">Weekly S/R Test</span>
+  <span class="tag">Claude AI</span>
+</header>
+
+<main>
+
+  <!-- Strategy legend -->
+  <div class="legend">
+    <div class="legend-step">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <strong>RSI Breaks Above 70</strong>
+        <span>Daily RSI(14) crosses from below to above 70</span>
+      </div>
     </div>
-
-    <div id="loader" class="loader" style="display:none">
-      <div class="spinner"></div>
-      <span id="loaderText">Analysing...</span>
+    <div class="legend-step">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <strong>Pivot Resistance Rejection</strong>
+        <span>Daily candle wicks into R1/R2/R3 &amp; closes below — bearish rejection</span>
+      </div>
     </div>
-
-    <div id="grid" class="grid"></div>
-
-    <div id="empty" class="empty" style="display:none">
-      <h2>No signals yet</h2>
-      <p>Enter an FX pair or click "Scan All Pairs" to begin.</p>
+    <div class="legend-step">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <strong>Weekly Level Tested 2× (3–5 wks)</strong>
+        <span>Weekly candles tested that resistance ≥ 2 times</span>
+      </div>
     </div>
-  </main>
+    <div class="legend-step">
+      <div class="step-num">4</div>
+      <div class="step-text">
+        <strong>Bearish Daily Candle Close</strong>
+        <span>Last completed daily candle closes bearish (close &lt; open)</span>
+      </div>
+    </div>
+  </div>
 
-  <script>
-    const API = '';   // Same origin — API serves this static file
+  <div class="controls">
+    <input id="symInput" type="text" placeholder="e.g. EUR/USD" value="EUR/USD" />
+    <button class="btn-single" id="btnSingle" onclick="analyseSingle()">Analyse Pair</button>
+    <button class="btn-scan"   id="btnScan"   onclick="scanAll()">Scan All Pairs</button>
+    <span id="statusMsg" class="status"></span>
+  </div>
 
-    function setLoading(on, msg = 'Analysing...') {
-      document.getElementById('loader').style.display = on ? 'flex' : 'none';
-      document.getElementById('loaderText').textContent = msg;
-      document.getElementById('btnSingle').disabled = on;
-      document.getElementById('btnScan').disabled = on;
-    }
+  <div id="loader" class="loader" style="display:none">
+    <div class="spinner"></div>
+    <span id="loaderText">Analysing...</span>
+  </div>
 
-    function setStatus(msg) {
-      document.getElementById('statusMsg').textContent = msg;
-    }
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" style="display:none">
+    <h2>No data yet</h2>
+    <p>Enter an FX pair above or click "Scan All Pairs".</p>
+  </div>
 
-    async function scanSingle() {
-      const sym = document.getElementById('symbolInput').value.trim();
-      if (!sym) return;
-      setLoading(true, `Fetching ${sym}...`);
-      setStatus('');
-      try {
-        const res = await fetch(`${API}/api/signals/${encodeURIComponent(sym.replace('/', '-'))}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'API error');
-        renderCards([data]);
-        setStatus(`Last updated: ${new Date().toLocaleTimeString()}`);
-      } catch (e) {
-        setStatus(`Error: ${e.message}`);
-      } finally {
-        setLoading(false);
-      }
-    }
+</main>
 
-    async function scanAll() {
-      setLoading(true, 'Scanning all FX pairs... this may take ~30s');
-      setStatus('');
-      try {
-        const res = await fetch(`${API}/api/signals/scan`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'API error');
-        renderCards(data);
-        setStatus(`Scanned ${data.length} pairs · Last updated: ${new Date().toLocaleTimeString()}`);
-      } catch (e) {
-        setStatus(`Error: ${e.message}`);
-      } finally {
-        setLoading(false);
-      }
-    }
+<script>
+  function setLoading(on, msg = 'Analysing...') {
+    document.getElementById('loader').style.display = on ? 'flex' : 'none';
+    document.getElementById('loaderText').textContent = msg;
+    ['btnSingle','btnScan'].forEach(id => document.getElementById(id).disabled = on);
+  }
+  function setStatus(msg) { document.getElementById('statusMsg').textContent = msg; }
 
-    function renderCards(signals) {
-      const grid = document.getElementById('grid');
-      const empty = document.getElementById('empty');
-      grid.innerHTML = '';
+  async function analyseSingle() {
+    const sym = document.getElementById('symInput').value.trim();
+    if (!sym) return;
+    setLoading(true, `Fetching ${sym}…`);
+    try {
+      const res  = await fetch(`/api/signals/${encodeURIComponent(sym.replace('/','-'))}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'API error');
+      renderCards([data]);
+      setStatus(`Updated: ${new Date().toLocaleTimeString()}`);
+    } catch(e) { setStatus(`Error: ${e.message}`); }
+    finally { setLoading(false); }
+  }
 
-      if (!signals.length) { empty.style.display = 'block'; return; }
-      empty.style.display = 'none';
+  async function scanAll() {
+    setLoading(true, 'Scanning 7 pairs — may take ~30s…');
+    try {
+      const res  = await fetch('/api/signals/scan');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'API error');
+      renderCards(data);
+      setStatus(`Scanned ${data.length} pairs · ${new Date().toLocaleTimeString()}`);
+    } catch(e) { setStatus(`Error: ${e.message}`); }
+    finally { setLoading(false); }
+  }
 
-      signals.forEach(s => {
-        const dir = s.signal.toLowerCase();
-        const rsiClass = s.rsi <= 30 ? 'oversold' : s.rsi >= 70 ? 'overbought' : 'neutral';
+  function ruleRow(pass, label, value) {
+    return `
+      <div class="rule-row">
+        <div class="rule-icon ${pass ? 'pass' : 'fail'}">${pass ? '✓' : '✗'}</div>
+        <span class="rule-label">${label}</span>
+        <span class="rule-value">${value}</span>
+      </div>`;
+  }
 
-        grid.innerHTML += `
-          <div class="card signal-${dir}">
-            <div class="card-header">
-              <span class="symbol">${s.symbol}</span>
-              <span class="signal-badge ${dir}">${s.signal}</span>
+  function renderCards(signals) {
+    const grid  = document.getElementById('grid');
+    const empty = document.getElementById('empty');
+    grid.innerHTML = '';
+    if (!signals.length) { empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+
+    signals.forEach(s => {
+      const dir      = s.signal.toLowerCase();
+      const rsiClass = s.rsi >= 70 ? 'overbought' : 'neutral';
+
+      grid.innerHTML += `
+        <div class="card ${dir}">
+          <div class="card-header">
+            <span class="symbol">${s.symbol}</span>
+            <span class="sig-badge ${dir}">${s.signal === 'Short' ? '▼ SHORT' : 'No Signal'}</span>
+          </div>
+
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-label">Price (Close)</div>
+              <div class="metric-value">${s.currentPrice.toFixed(5)}</div>
             </div>
-
-            <div class="metrics">
-              <div class="metric">
-                <div class="metric-label">Price (Close)</div>
-                <div class="metric-value">${s.currentPrice.toFixed(5)}</div>
-              </div>
-              <div class="metric">
-                <div class="metric-label">RSI (14)</div>
-                <div class="metric-value ${rsiClass}">${s.rsi}</div>
-              </div>
-              <div class="metric">
-                <div class="metric-label">Daily Pivot</div>
-                <div class="metric-value">${s.dailyPivots.pivot.toFixed(5)}</div>
-              </div>
-              <div class="metric">
-                <div class="metric-label">Touched Level</div>
-                <div class="metric-value">${s.touchedLevelLabel !== 'None' ? s.touchedLevelLabel + ' @ ' + s.touchedWeeklyLevel?.toFixed(5) : '—'}</div>
-              </div>
+            <div class="metric">
+              <div class="metric-label">RSI(14) Daily</div>
+              <div class="metric-value ${rsiClass}">${s.rsi} <small style="font-weight:400;color:var(--muted)">(prev ${s.previousRsi})</small></div>
             </div>
-
-            <div class="rules">
-              <span class="rule ${s.rsiConditionMet ? 'pass' : 'fail'}">
-                ${s.rsiConditionMet ? '✓' : '✗'} RSI Condition
-              </span>
-              <span class="rule ${s.pivotAlignmentMet ? 'pass' : 'fail'}">
-                ${s.pivotAlignmentMet ? '✓' : '✗'} Pivot Alignment
-              </span>
-              <span class="rule ${s.weeklySrTouchedIntrabar ? 'pass' : 'fail'}">
-                ${s.weeklySrTouchedIntrabar ? '✓' : '✗'} Weekly S/R Touch
-              </span>
+            <div class="metric">
+              <div class="metric-label">Weekly Tests</div>
+              <div class="metric-value">${s.weeklyTestCount} / 5 wks</div>
             </div>
+          </div>
 
-            <div class="narrative">
-              <div class="narrative-label">🤖 Claude AI Analysis</div>
-              ${s.claudeNarrative ?? 'No narrative available.'}
-            </div>
+          <div class="rules">
+            ${ruleRow(s.rsiBreakingUpperLimit,     'Rule 1 — RSI breaks above 70 (daily)',       `${s.previousRsi} → ${s.rsi}`)}
+            ${ruleRow(s.pivotTouchWithRejection,   'Rule 2 — Pivot resistance rejection',         s.touchedPivotLabel !== 'None' ? `${s.touchedPivotLabel} @ ${s.touchedPivotLevel?.toFixed(5) ?? '—'}` : '—')}
+            ${ruleRow(s.weeklyTestedMultipleTimes, 'Rule 3 — Weekly level tested 2× (3–5 wks)',   `${s.weeklyTestCount} test(s)`)}
+            ${ruleRow(s.dailyCandleBearish,        'Rule 4 — Daily candle closes bearish',         s.dailyCandleBearish ? 'Bearish close ✓' : 'Not bearish')}
+          </div>
 
-            <div class="timestamp">Evaluated: ${new Date(s.evaluatedAt).toLocaleDateString('en-GB', { weekday:'short', year:'numeric', month:'short', day:'numeric' })}</div>
-          </div>`;
-      });
-    }
-  </script>
+          <div class="narrative">
+            <div class="narrative-label">🤖 Claude AI — Analyst Commentary</div>
+            ${s.claudeNarrative ?? 'No narrative available.'}
+          </div>
+
+          <div class="timestamp">
+            Evaluated: ${new Date(s.evaluatedAt).toLocaleDateString('en-GB',{weekday:'short',year:'numeric',month:'short',day:'numeric'})}
+            &nbsp;·&nbsp; Daily Pivot: ${s.dailyPivots?.pivot?.toFixed(5) ?? '—'}
+            &nbsp;·&nbsp; R1: ${s.dailyPivots?.r1?.toFixed(5) ?? '—'}
+            &nbsp;·&nbsp; R2: ${s.dailyPivots?.r2?.toFixed(5) ?? '—'}
+          </div>
+        </div>`;
+    });
+  }
+</script>
 </body>
 </html>

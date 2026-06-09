@@ -5,7 +5,8 @@ using ReversalStrategy.Api.Models;
 namespace ReversalStrategy.Api.Services;
 
 /// <summary>
-/// Sends computed signal data to Claude and gets a plain-English trading analyst narrative.
+/// Sends the computed signal evaluation to Claude and returns a plain-English
+/// trading analyst narrative explaining the SHORT setup.
 /// </summary>
 public class ClaudeExplainerService(IConfiguration config, ILogger<ClaudeExplainerService> logger)
 {
@@ -19,44 +20,61 @@ public class ClaudeExplainerService(IConfiguration config, ILogger<ClaudeExplain
         var client = new AnthropicClient(apiKey);
 
         var systemPrompt = """
-            You are a professional FX trading analyst specialising in reversal strategies.
-            Your job is to review computed technical indicator data and write a concise,
-            clear analyst commentary (3-5 sentences) explaining why this setup does or does
-            not qualify as a reversal signal. Be specific — reference the actual numbers.
-            Do not give financial advice or recommendations to buy/sell. Explain the technicals only.
+            You are a professional FX trading analyst specialising in SHORT reversal setups.
+            Your role is to review computed technical indicator data and write a concise,
+            clear analyst commentary (4-6 sentences) walking through each of the 4 strategy rules
+            and explaining whether this setup qualifies for a SHORT signal.
+            Reference the actual numbers. Be direct and structured.
+            Do NOT give financial advice or recommend actual trades. Analyse the technicals only.
             """;
 
+        var allRulesMet = signal.Signal == SignalDirection.Short;
+
         var userMessage = $"""
-            Please analyse the following FX reversal strategy evaluation for {signal.Symbol}:
+            Please analyse this SHORT Reversal Strategy evaluation for {signal.Symbol}.
 
-            === Market Data ===
-            Symbol:        {signal.Symbol}
-            Evaluated At:  {signal.EvaluatedAt:yyyy-MM-dd}
+            === Strategy Rules Evaluated ===
+
+            RULE 1 — RSI(14) Daily Breaks Above 70 (Overbought Breakout)
+            Previous RSI : {signal.PreviousRsi}
+            Current RSI  : {signal.Rsi}
+            Rule 1 Met   : {signal.RsiBreakingUpperLimit}
+            (Requires: previous RSI < 70 AND current RSI >= 70)
+
+            RULE 2 — Price Touches Daily Pivot Resistance + Bearish Rejection
+            Daily Pivot  : {signal.DailyPivots.Pivot}
+            Daily R1     : {signal.DailyPivots.R1}
+            Daily R2     : {signal.DailyPivots.R2}
+            Daily R3     : {signal.DailyPivots.R3}
             Current Price: {signal.CurrentPrice}
+            Touched Level: {signal.TouchedPivotLabel} @ {signal.TouchedPivotLevel?.ToString("F5") ?? "N/A"}
+            Rule 2 Met   : {signal.PivotTouchWithRejection}
+            (Requires: candle High touched R-level intrabar AND close < level AND bearish candle body)
 
-            === RSI (14-period) ===
-            RSI Value:     {signal.Rsi}
-            Condition Met: {signal.RsiConditionMet} (threshold: below 30 = oversold/BUY, above 70 = overbought/SELL)
+            RULE 3 — Weekly Candles: Level Tested 2+ Times in Last 5 Weeks
+            Weekly R1    : {signal.WeeklyPivots.R1}
+            Weekly R2    : {signal.WeeklyPivots.R2}
+            Weekly R3    : {signal.WeeklyPivots.R3}
+            Tests Found  : {signal.WeeklyTestCount} out of last 5 weeks
+            Rule 3 Met   : {signal.WeeklyTestedMultipleTimes}
+            (Requires: >= 2 weekly candles with High >= resistance level)
 
-            === Daily Pivot Points (from previous daily candle) ===
-            Pivot:  {signal.DailyPivots.Pivot}
-            R1: {signal.DailyPivots.R1}  R2: {signal.DailyPivots.R2}  R3: {signal.DailyPivots.R3}
-            S1: {signal.DailyPivots.S1}  S2: {signal.DailyPivots.S2}  S3: {signal.DailyPivots.S3}
-            Pivot Alignment Met: {signal.PivotAlignmentMet}
-
-            === Weekly Support/Resistance Levels (from last completed week) ===
-            R1: {signal.WeeklyPivots.R1}  R2: {signal.WeeklyPivots.R2}  R3: {signal.WeeklyPivots.R3}
-            S1: {signal.WeeklyPivots.S1}  S2: {signal.WeeklyPivots.S2}  S3: {signal.WeeklyPivots.S3}
-            Intrabar Touch of Weekly S2/S3 (or R2/R3): {signal.WeeklySrTouchedIntrabar}
-            Touched Level: {signal.TouchedLevelLabel} @ {signal.TouchedWeeklyLevel?.ToString() ?? "N/A"}
+            RULE 4 — Latest Completed Daily Candle is Bearish
+            Daily Candle Bearish: {signal.DailyCandleBearish}
+            (Requires: close < open on the completed daily candle)
 
             === Final Signal ===
             Signal: {signal.Signal}
+            Evaluated At: {signal.EvaluatedAt:yyyy-MM-dd}
+
+            {(allRulesMet
+                ? "All 4 rules are satisfied. Explain why this is a valid SHORT setup."
+                : $"Not all rules are satisfied. Explain which rules passed, which failed, and what is missing for a SHORT signal.")}
 
             Write your analyst commentary now:
             """;
 
-        logger.LogInformation("Sending {Symbol} signal to Claude for narration", signal.Symbol);
+        logger.LogInformation("Sending {Symbol} to Claude for SHORT signal narration", signal.Symbol);
 
         var messages = new List<Message>
         {
@@ -65,10 +83,10 @@ public class ClaudeExplainerService(IConfiguration config, ILogger<ClaudeExplain
 
         var request = new MessageParameters
         {
-            Model    = Model,
-            MaxTokens = 400,
-            System   = [new SystemMessage(systemPrompt)],
-            Messages = messages
+            Model     = Model,
+            MaxTokens = 450,
+            System    = [new SystemMessage(systemPrompt)],
+            Messages  = messages
         };
 
         var response = await client.Messages.GetClaudeMessageAsync(request);

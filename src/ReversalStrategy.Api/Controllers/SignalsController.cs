@@ -7,18 +7,17 @@ namespace ReversalStrategy.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class SignalsController(
-    MarketDataService marketData,
-    ReversalStrategyEngine strategyEngine,
-    ClaudeExplainerService claudeExplainer,
+    MarketDataService       marketData,
+    ReversalStrategyEngine  strategyEngine,
+    ClaudeExplainerService  claudeExplainer,
     ILogger<SignalsController> logger) : ControllerBase
 {
-    // Default FX pairs to scan
     private static readonly string[] DefaultPairs =
         ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD"];
 
     /// <summary>
-    /// Evaluates the reversal strategy for a single FX pair and returns
-    /// indicator data plus Claude's narrative explanation.
+    /// Evaluates the SHORT reversal strategy for a single FX pair.
+    /// Symbol format: EUR-USD  (use dash in URL, slash used internally)
     /// </summary>
     [HttpGet("{symbol}")]
     [ProducesResponseType(typeof(SignalResult), 200)]
@@ -26,15 +25,15 @@ public class SignalsController(
     {
         try
         {
-            var formattedSymbol = symbol.ToUpper().Replace("-", "/");
+            var formatted = symbol.ToUpper().Replace("-", "/");
+            logger.LogInformation("Evaluating SHORT reversal for {Symbol}", formatted);
 
-            logger.LogInformation("Evaluating reversal signal for {Symbol}", formattedSymbol);
+            var daily  = await marketData.GetDailyCandlesAsync(formatted,  30);
+            var weekly = await marketData.GetWeeklyCandlesAsync(formatted,  8);
 
-            var dailyCandles  = await marketData.GetDailyCandlesAsync(formattedSymbol, 30);
-            var weeklyCandles = await marketData.GetWeeklyCandlesAsync(formattedSymbol, 10);
+            var signal = await strategyEngine.EvaluateAsync(formatted, daily, weekly);
 
-            var signal = await strategyEngine.EvaluateAsync(formattedSymbol, dailyCandles, weeklyCandles);
-
+            // Always ask Claude — even if no signal, the rule-by-rule explanation is valuable
             var narrative = await claudeExplainer.NarrateSignalAsync(signal);
             signal = signal with { ClaudeNarrative = narrative };
 
@@ -42,14 +41,14 @@ public class SignalsController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error evaluating signal for {Symbol}", symbol);
+            logger.LogError(ex, "Error evaluating {Symbol}", symbol);
             return StatusCode(500, new { error = ex.Message });
         }
     }
 
     /// <summary>
-    /// Scans all default FX pairs and returns signals with Claude narration.
-    /// Only returns pairs where at least the RSI condition is met.
+    /// Scans all default FX pairs for SHORT reversal candidates.
+    /// Claude is called for any pair where at least Rule 1 (RSI breakout) is met.
     /// </summary>
     [HttpGet("scan")]
     [ProducesResponseType(typeof(List<SignalResult>), 200)]
@@ -61,29 +60,43 @@ public class SignalsController(
         {
             try
             {
-                var dailyCandles  = await marketData.GetDailyCandlesAsync(pair, 30);
-                var weeklyCandles = await marketData.GetWeeklyCandlesAsync(pair, 10);
-                var signal        = await strategyEngine.EvaluateAsync(pair, dailyCandles, weeklyCandles);
+                var daily  = await marketData.GetDailyCandlesAsync(pair, 30);
+                var weekly = await marketData.GetWeeklyCandlesAsync(pair,  8);
 
-                // Only call Claude for candidates where RSI condition is met (save API calls)
-                if (signal.RsiConditionMet)
+                var signal = await strategyEngine.EvaluateAsync(pair, daily, weekly);
+
+                if (signal.RsiBreakingUpperLimit)
                 {
                     var narrative = await claudeExplainer.NarrateSignalAsync(signal);
                     signal = signal with { ClaudeNarrative = narrative };
                 }
                 else
                 {
-                    signal = signal with { ClaudeNarrative = "RSI condition not met — no reversal candidate at this time." };
+                    signal = signal with
+                    {
+                        ClaudeNarrative = $"RSI ({signal.Rsi}) has not broken above 70 on the daily chart — " +
+                                          "Rule 1 not met, no further evaluation required."
+                    };
                 }
 
                 results.Add(signal);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Skipping {Pair} due to error", pair);
+                logger.LogWarning(ex, "Skipping {Pair}: {Message}", pair, ex.Message);
             }
         }
 
-        return Ok(results.OrderByDescending(r => r.Signal).ThenBy(r => r.Symbol));
+        // SHORT signals first, then by how many rules passed
+        return Ok(results
+            .OrderByDescending(r => r.Signal == SignalDirection.Short)
+            .ThenByDescending(r => RuleScore(r))
+            .ThenBy(r => r.Symbol));
     }
+
+    private static int RuleScore(SignalResult r) =>
+        (r.RsiBreakingUpperLimit     ? 1 : 0) +
+        (r.PivotTouchWithRejection   ? 1 : 0) +
+        (r.WeeklyTestedMultipleTimes ? 1 : 0) +
+        (r.DailyCandleBearish        ? 1 : 0);
 }

@@ -1,23 +1,24 @@
-# 📈 Reversal Strategy AI Assistant
+# 📉 FX SHORT Reversal Strategy — AI Assistant
 
-An FX trading signal application that combines a rules-based technical analysis engine with an AI-powered narrative layer using [Claude](https://claude.ai) by Anthropic.
+An FX trading signal application that detects **SHORT reversal setups** using a 4-step rules-based strategy engine, combined with an AI narrative layer powered by [Claude](https://claude.ai) by Anthropic.
 
-> Built by a .NET developer exploring AI engineering — demonstrating how deterministic quant logic and large language models can work together in a production-style .NET 8 application.
+> Built by a senior .NET developer exploring AI engineering — demonstrating how deterministic quant logic and large language models work together in a production-style .NET 8 application.
 
 ---
 
-## 🧠 What it does
+## 🧠 Strategy Logic
 
-The app evaluates a **Reversal Strategy** for FX pairs by walking through a rule chain at the daily market close:
+The app evaluates a **4-step SHORT Reversal Strategy** on FX pairs using daily and weekly candles:
 
-| Step | Rule | Detail |
-|------|------|--------|
-| 1 | **RSI Condition** | RSI (14-period) below 30 = oversold → potential BUY reversal |
-| 2 | **Pivot Point Alignment** | Price must be below the daily pivot point (confirms bearish pressure before reversal) |
-| 3 | **Weekly S/R Intrabar Touch** | Today's candle High/Low must have touched or crossed Weekly S2 or S3 support levels |
-| ✅ | **Signal** | All three conditions met at close → BUY signal flagged |
+| Step | Timeframe | Rule | Detail |
+|------|-----------|------|--------|
+| **1** | Daily | **RSI(14) breaks above 70** | RSI was below 70, now crosses above — overbought breakout signal |
+| **2** | Daily | **Price reaches pivot resistance + bearish rejection** | Candle wick touches R1/R2/R3 intrabar, closes below it — shooting-star/bearish rejection |
+| **3** | Weekly | **Resistance tested 2+ times in last 3–5 weeks** | Switch to weekly candles — confirms the level is a known, tested resistance |
+| **4** | Daily | **Latest completed daily candle is bearish** | Close < open on the last finished daily candle — confirms downward pressure |
+| ✅ | — | **Signal: SHORT** | All 4 rules met at daily close |
 
-Claude then receives the full indicator data and produces a **plain-English analyst narrative** explaining the setup — like having a trading analyst on call.
+Claude then receives all computed indicator data and writes a **plain-English analyst commentary** — walking through each rule and explaining the setup like a trading analyst.
 
 ---
 
@@ -26,16 +27,19 @@ Claude then receives the full indicator data and produces a **plain-English anal
 ```
 reversal-strategy-ai-assistant/
 ├── src/
-│   └── ReversalStrategy.Api/           # ASP.NET Core 8 Web API
+│   └── ReversalStrategy.Api/                    # ASP.NET Core 8 Web API
 │       ├── Controllers/
-│       │   └── SignalsController.cs    # REST endpoints: /api/signals/{pair} & /api/signals/scan
+│       │   └── SignalsController.cs             # GET /api/signals/{pair}  &  /api/signals/scan
 │       ├── Services/
-│       │   ├── MarketDataService.cs    # Fetches OHLC data from Twelve Data API
-│       │   ├── IndicatorEngine.cs      # RSI (Wilder), Pivot Points (floor method), S/R touch logic
-│       │   ├── ReversalStrategyEngine.cs # Applies the 3-rule reversal strategy chain
-│       │   └── ClaudeExplainerService.cs # Sends signal data to Claude → returns analyst narrative
-│       ├── Models/                     # Candle, PivotLevels, SignalResult records
-│       └── wwwroot/index.html          # Single-page dashboard (vanilla JS, dark theme)
+│       │   ├── MarketDataService.cs             # Fetches OHLC candles from Twelve Data API
+│       │   ├── IndicatorEngine.cs               # RSI (Wilder), pivot points, bearish-rejection checks, weekly test count
+│       │   ├── ReversalStrategyEngine.cs        # Applies 4-step rule chain, returns SignalResult
+│       │   └── ClaudeExplainerService.cs        # Structured prompt → Claude → analyst narrative
+│       ├── Models/
+│       │   ├── Candle.cs                        # OHLCV record
+│       │   ├── PivotLevels.cs                   # P, R1-R3, S1-S3
+│       │   └── SignalResult.cs                  # Full evaluation result (all rule flags + narrative)
+│       └── wwwroot/index.html                   # Dark-theme SPA dashboard
 └── ReversalStrategy.sln
 ```
 
@@ -46,32 +50,28 @@ reversal-strategy-ai-assistant/
 ### Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- [Twelve Data API key](https://twelvedata.com) (free tier — 800 calls/day)
-- [Anthropic API key](https://console.anthropic.com)
+- [Twelve Data API key](https://twelvedata.com) — free tier (800 calls/day)
+- [Anthropic API key](https://console.anthropic.com) — Claude API
 
-### 1. Clone the repo
+### 1. Clone
 
 ```bash
 git clone https://github.com/vravilla-tech/reversal-strategy-ai-assistant.git
 cd reversal-strategy-ai-assistant
 ```
 
-### 2. Add your API keys
+### 2. Add API keys
 
 Edit `src/ReversalStrategy.Api/appsettings.json`:
 
 ```json
 {
-  "TwelveData": {
-    "ApiKey": "your_twelvedata_key_here"
-  },
-  "Anthropic": {
-    "ApiKey": "your_anthropic_key_here"
-  }
+  "TwelveData":  { "ApiKey": "your_twelvedata_key" },
+  "Anthropic":   { "ApiKey": "your_anthropic_key"  }
 }
 ```
 
-> ⚠️ Never commit real API keys. Use `appsettings.Development.json` (git-ignored) locally.
+> ⚠️ Never commit real API keys. Use `appsettings.Development.json` (git-ignored) for local dev.
 
 ### 3. Run
 
@@ -80,28 +80,28 @@ cd src/ReversalStrategy.Api
 dotnet run
 ```
 
-Then open:
 - **Dashboard:** http://localhost:5000
 - **Swagger UI:** http://localhost:5000/swagger
 
 ---
 
-## 📡 API Endpoints
+## 📡 API Reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/signals/{symbol}` | Evaluate a single FX pair (e.g. `EUR-USD`) |
-| `GET` | `/api/signals/scan` | Scan all 7 major FX pairs |
+| `GET` | `/api/signals/{symbol}` | Analyse a single pair — e.g. `/api/signals/EUR-USD` |
+| `GET` | `/api/signals/scan` | Scan all 7 major FX pairs for SHORT candidates |
 | `GET` | `/health` | Health check |
 
 ---
 
 ## 🤖 AI Engineering Highlights
 
-- **Structured prompting:** Claude receives a precise, templated data payload — not free-text — ensuring consistent, grounded responses
-- **LLM as explainability layer:** The deterministic signal engine runs first; Claude's role is interpretation, not decision-making
-- **Cost-aware design:** Claude is only called when the RSI condition is met (not for every pair on every scan)
-- **Separation of concerns:** Strategy logic is fully testable without any LLM dependency
+- **Structured prompting** — Claude receives a precisely templated data payload per rule, not free text, ensuring grounded and consistent responses
+- **LLM as explainability layer** — the deterministic strategy engine decides the signal; Claude's role is interpretation and narration only
+- **Sequential rule evaluation** — each rule gates the next, avoiding unnecessary computation and API calls
+- **Cost-aware Claude usage** — Claude is only called when at least Rule 1 (RSI breakout) is satisfied
+- **Clean separation of concerns** — strategy logic is fully testable in isolation without any LLM dependency
 
 ---
 
@@ -110,9 +110,10 @@ Then open:
 | Layer | Technology |
 |-------|-----------|
 | API | ASP.NET Core 8 Web API |
-| AI | Claude (via `Anthropic.SDK` NuGet package) |
-| Market Data | Twelve Data REST API |
-| Frontend | Vanilla HTML/CSS/JS (dark theme, no build step) |
+| AI / LLM | Claude (via `Anthropic.SDK` NuGet) |
+| Market Data | Twelve Data REST API (daily + weekly OHLC) |
+| Indicators | RSI (Wilder's smoothing), Floor Pivot Points |
+| Frontend | Vanilla HTML/CSS/JS — no build step, dark theme |
 | Language | C# 12 / .NET 8 |
 
 ---
